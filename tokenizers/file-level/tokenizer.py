@@ -1,20 +1,16 @@
-import logging
-import multiprocessing as mp
-from multiprocessing import Process, Value, Queue
-import re
-import os, platform
 import collections
-import tarfile
-import sys
-import hashlib
 import datetime as dt
+import hashlib
+import io
+import logging
+import os
+import platform
+import re
+import sys
+import tarfile
 import zipfile
-import javalang
-
-try:
-  from configparser import ConfigParser
-except ImportError:
-  from ConfigParser import ConfigParser # ver. < 3.0
+from multiprocessing import Process, Queue
+from configparser import ConfigParser
 
 MULTIPLIER = 50000000
 
@@ -54,7 +50,7 @@ def read_config():
   try:
     config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)) , 'config.ini'))
   except IOError:
-    print 'ERROR - Config settings not found. Usage: $python this-script.py config-file.ini'
+    print('ERROR - Config settings not found. Usage: $python this-script.py config-file.ini')
     sys.exit()
 
   # Get info from config.ini into global variables
@@ -93,7 +89,7 @@ def tokenize_files(file_string, comment_inline_pattern, comment_open_close_patte
 
   h_time = dt.datetime.now()
   m = hashlib.md5()
-  m.update(file_string)
+  m.update(file_string.encode("utf-8"))
   file_hash = m.hexdigest()
   hash_time = (dt.datetime.now() - h_time).microseconds
   
@@ -122,7 +118,7 @@ def tokenize_files(file_string, comment_inline_pattern, comment_open_close_patte
   final_stats = (file_hash,lines,LOC,SLOC)
 
   # Rather a copy of the file string here for tokenization
-  file_string_for_tokenization = file_string.decode('utf-8')
+  file_string_for_tokenization = file_string
 
   #Transform separators into spaces (remove them)
   s_time = dt.datetime.now()
@@ -144,13 +140,13 @@ def tokenize_files(file_string, comment_inline_pattern, comment_open_close_patte
   t_time = dt.datetime.now()
   #SourcererCC formatting
   tokens = ','.join(['{}@@::@@{}'.format(k.encode('utf-8'), v)
-                    for k,v in file_string_for_tokenization.iteritems()])
+                    for k,v in file_string_for_tokenization.items()])
   t_time = (dt.datetime.now() - t_time).microseconds
 
   # MD5
   h_time = dt.datetime.now()
   m = hashlib.md5()
-  m.update(tokens)
+  m.update(tokens.encode("utf-8"))
   hash_time += (dt.datetime.now() - h_time).microseconds
 
   final_tokens = (tokens_count_total,tokens_count_unique,m.hexdigest(),'@#@'+tokens)
@@ -205,12 +201,12 @@ def process_regular_folder(args, folder_path, files):
 
   for file_path in all_files:
     file_id = process_num*MULTIPLIER + base_file_id + file_count
-    print "<%s, %s, %s>" %(file_id, folder_path, file_path)
+    print("<%s, %s, %s>" %(file_id, folder_path, file_path))
     file_path = os.path.join(folder_path, file_path)
 
     with open(file_path) as f:
       f_time = dt.datetime.now()
-      file_string = f.read()
+      file_string = io.TextIOWrapper(f).read()
       f_time = (dt.datetime.now() - f_time).microseconds
 
       times_c = process_file_contents(file_string, proj_id, file_id, "", file_path, str(os.path.getsize(file_path)),
@@ -263,7 +259,7 @@ def process_tgz_ball(process_num, tar_file, proj_id, proj_path, proj_url, base_f
           break
 
         f_time = dt.datetime.now()
-        file_string = myfile.read()
+        file_string = io.TextIOWrapper(myfile).read()
         file_time += (dt.datetime.now() - f_time).microseconds
 
         times = process_file_contents(file_string, proj_id, file_id, tar_file, file_path, file_bytes,
@@ -323,7 +319,7 @@ def process_zip_ball(process_num, zip_file, proj_id, proj_path, proj_url, base_f
           break
 
         f_time      = dt.datetime.now()
-        file_string = my_zip_file.read()
+        file_string = io.TextIOWrapper(my_zip_file).read()
         file_time   += (dt.datetime.now() - f_time).microseconds
 
         times = process_file_contents(file_string, proj_id, file_id, zip_file, file_path, file_bytes,
@@ -452,7 +448,7 @@ def start_child(processes, global_queue, proj_paths, batch, project_format):
   paths_batch = proj_paths[:batch]
   del proj_paths[:batch]
 
-  print "Starting new process %s" % (pid)
+  print("Starting new process %s" % (pid))
   p = Process(name='Process '+str(pid), target=process_projects, args=(pid, paths_batch, processes[pid][1], global_queue, project_format, ))
   processes[pid][0] = p
   p.start()
@@ -464,7 +460,7 @@ def kill_child(processes, pid, n_files_processed):
     processes[pid][0] = None
     processes[pid][1] += n_files_processed
     
-    print "Process %s finished, %s files processed (%s). Current total: %s" % (pid, n_files_processed, processes[pid][1], file_count)
+    print("Process %s finished, %s files processed (%s). Current total: %s" % (pid, n_files_processed, processes[pid][1], file_count))
 
 def active_process_count(processes):
   count = 0
@@ -479,7 +475,7 @@ if __name__ == '__main__':
   project_format = sys.argv[1] # 'zip' or 'leidos'
 
   if project_format not in ['zip','leidos']:
-    print "ERROR - Please insert archive format, 'zip', 'leidos'!"
+    print("ERROR - Please insert archive format, 'zip', 'leidos'!")
     sys.exit()
 
   read_config()
@@ -491,11 +487,11 @@ if __name__ == '__main__':
       for line in f:
         line_split = line.strip('\n') # [:-1] to strip final character which is '\n'
         prio_proj_paths.append(line_split)
-    prio_proj_paths = zip(range(init_proj_id, len(prio_proj_paths)+init_proj_id), prio_proj_paths)
+    prio_proj_paths = list(zip(list(range(init_proj_id, len(prio_proj_paths)+init_proj_id)), prio_proj_paths))
 
   proj_paths = []
   if project_format == 'leidos':
-    print '\'',project_format,'\'','format'
+    print('\'',project_format,'\'','format')
     with open(FILE_projects_list) as f:
       for line in f:
         prio = False
@@ -503,19 +499,19 @@ if __name__ == '__main__':
         for p in prio_proj_paths:
           if p[1][0] == line_split:
             prio = True
-            print "Project %s is in priority list" % line_split
+            print("Project %s is in priority list" % line_split)
         if not prio:
           proj_paths.append(line_split)
-    proj_paths = zip(range(1, len(proj_paths)+1), proj_paths)
+    proj_paths = list(zip(list(range(1, len(proj_paths)+1)), proj_paths))
   if project_format in ['zip']:
-    print '\'',project_format,'\'','format'
+    print('\'',project_format,'\'','format')
     with open(FILE_projects_list) as f:
       for line in f:
         proj_paths.append(line[:-1])
-    proj_paths = zip(range(1, len(proj_paths)+1), proj_paths)
+    proj_paths = list(zip(list(range(1, len(proj_paths)+1)), proj_paths))
 
   if os.path.exists(PATH_stats_file_folder) or os.path.exists(PATH_bookkeeping_proj_folder) or os.path.exists(PATH_tokens_file_folder) or os.path.exists(PATH_logs):
-    print 'ERROR - Folder ['+PATH_stats_file_folder+'] or ['+PATH_bookkeeping_proj_folder+'] or ['+PATH_tokens_file_folder+'] or ['+PATH_logs+'] already exists!'
+    print('ERROR - Folder ['+PATH_stats_file_folder+'] or ['+PATH_bookkeeping_proj_folder+'] or ['+PATH_tokens_file_folder+'] or ['+PATH_logs+'] already exists!')
     sys.exit(1)
   else:
     os.makedirs(PATH_stats_file_folder)
@@ -528,30 +524,30 @@ if __name__ == '__main__':
 
   # Multiprocessing with N_PROCESSES
   # [process, file_count]
-  processes = [[None, init_file_id] for i in xrange(N_PROCESSES)]
+  processes = [[None, init_file_id] for i in range(N_PROCESSES)]
   # Multiprocessing shared variable instance for recording file_id
   #file_id_global_var = Value('i', 1)
   # The queue for processes to communicate back to the parent (this process)
   # Initialize it with N_PROCESSES number of (process_id, n_files_processed)
   global_queue = Queue()
-  for i in xrange(N_PROCESSES):
+  for i in range(N_PROCESSES):
     global_queue.put((i, 0))
 
   # Start the priority projects
-  print "*** Starting priority projects..."
+  print("*** Starting priority projects...")
   while len(prio_proj_paths) > 0:
     start_child(processes, global_queue, prio_proj_paths, 1, project_format)
 
   # Start all other projects
-  print "*** Starting regular projects..."
+  print("*** Starting regular projects...")
   while len(proj_paths) > 0:
     start_child(processes, global_queue, proj_paths, PROJECTS_BATCH, project_format)
 
-  print "*** No more projects to process. Waiting for children to finish..."
+  print("*** No more projects to process. Waiting for children to finish...")
   while active_process_count(processes) > 0:
     pid, n_files_processed = global_queue.get()
     kill_child(processes, pid, n_files_processed)
 
   p_elapsed = dt.datetime.now() - p_start
-  print "*** All done. %s files in %s" % (file_count, p_elapsed)
+  print("*** All done. %s files in %s" % (file_count, p_elapsed))
 
