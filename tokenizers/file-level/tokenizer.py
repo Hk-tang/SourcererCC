@@ -18,10 +18,10 @@ N_PROCESSES = 2
 PROJECTS_BATCH = 20
 FILE_projects_list = 'projects-list.txt'
 FILE_priority_projects = None
-PATH_stats_file_folder = '../../../files_stats'
-PATH_bookkeeping_proj_folder = '../../../bookkeeping_projs'
-PATH_tokens_file_folder = '../../../files_tokens'
-PATH_logs = '../../../logs'
+PATH_stats_file_folder = '../../../tokenizer/files_stats'
+PATH_bookkeeping_proj_folder = '../../../tokenizer/bookkeeping_projs'
+PATH_tokens_file_folder = '../../../tokenizer/files_tokens'
+PATH_logs = '../../../tokenizer/logs'
 
 # Reading Language settings
 separators = ''
